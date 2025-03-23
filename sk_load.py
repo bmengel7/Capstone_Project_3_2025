@@ -25,6 +25,13 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
             return
 
         print(f"Found {len(excel_files)} Excel files: {[os.path.basename(f) for f in excel_files]}")
+        
+        print("Processing Excel files...")
+        all_dfsts = []  
+
+        for i, excel_file in enumerated(excel_files):
+            file_name = os.path.basename(excel_file)
+            print(f"Loading {file_name}...")
  
 if __name__ == "__main__":  
     main()
