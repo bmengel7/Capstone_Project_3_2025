@@ -23,7 +23,7 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
         if not excel_files:
             print(f"No Excel files found in {data_dir} directory.")
             return
-
+       
         print(f"Found {len(excel_files)} Excel files: {[os.path.basename(f) for f in excel_files]}")
         
         print("Processing Excel files...")
@@ -47,6 +47,14 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
                     df = pd.read_excel(excel_file, header=None, names=headers)
                    
                     df = df.iloc[1:]
+                    
+                 # Added a column indicating the source file to track data provenance
+                df['source_file'] = file_name
+                all_dfs.append(df)
+                print(f"  Loaded {len(df)} rows with {len(df.columns)} columns")
+            except Exception as e:
+                print(f"Error loading {file_name}: {e}")
+
  
 if __name__ == "__main__":  
     main()
