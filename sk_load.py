@@ -56,7 +56,7 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
                 print(f"Error loading {file_name}: {e}")
             
             #exit if no data is loaded from excel    
-             if not all_dfs:
+        if not all_dfs:
             print("No data loaded from Excel files.")
             return
 
