@@ -63,6 +63,11 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
            
         combined_df = pd.concat(all_dfs, ignore_index=True)
         print(f"Combined DataFrame has {len(combined_df)} rows and {len(combined_df.columns)} columns.")
- 
+
+        conn.register("combined_data", combined_df)
+        
+        conn.execute("DROP TABLE IF EXISTS serial")
+        
+        conn.execute("CREATE TABLE serial AS SELECT * FROM combined_data")
 if __name__ == "__main__":  
     main()
