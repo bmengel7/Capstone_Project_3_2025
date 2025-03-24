@@ -65,9 +65,17 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
         print(f"Combined DataFrame has {len(combined_df)} rows and {len(combined_df.columns)} columns.")
 
         conn.register("combined_data", combined_df)
-        
+         # Dropping existing table to avoid conflicts
         conn.execute("DROP TABLE IF EXISTS serial")
-        
+        # set up to permanent table from the temporary data
         conn.execute("CREATE TABLE serial AS SELECT * FROM combined_data")
+        
+        # counting rows, function key, tables
+        row_count = conn.execute("SELECT COUNT(*) FROM serial").fetchone()[0]
+        print(f"Created 'serial' table with {row_count} rows")
+        # Process Years active column to extract temporal information
+        column_info = conn.execute("PRAGMA table_info(serial)").fetchall()
+        column_names = [col[1] for col in column_info]
+
 if __name__ == "__main__":  
     main()
