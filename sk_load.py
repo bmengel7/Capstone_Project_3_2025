@@ -54,7 +54,15 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
                 print(f"  Loaded {len(df)} rows with {len(df.columns)} columns")
             except Exception as e:
                 print(f"Error loading {file_name}: {e}")
+            
+            #exit if no data is loaded from excel    
+             if not all_dfs:
+            print("No data loaded from Excel files.")
+            return
 
+           
+        combined_df = pd.concat(all_dfs, ignore_index=True)
+        print(f"Combined DataFrame has {len(combined_df)} rows and {len(combined_df.columns)} columns.")
  
 if __name__ == "__main__":  
     main()
