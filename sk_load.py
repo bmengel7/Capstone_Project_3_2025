@@ -168,8 +168,73 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
                 FROM serial
                 WHERE more_victims_possible = 'Yes'
             """).fetchdf()
+            
+            # Defining a function to extract the first number from text strings
+            def extract_first_number(text):
+                """
+                Extract the first numeric value from a text string.
+
+                Args:
+                    text: String potentially containing numeric values
+
+                Returns:
+                    int or None: First number found or None if no number is present
+                """
+                if pd.isna(text):
+                    return None
+
+                match = re.search(r'(\d+)', str(text))
+                if match:
+                    try:
+                        return int(match.group(1))
+                    except ValueError:
+                        pass
+                return None
         
+            # Apply the extraction function to the victim count column
+            victims_df['number_possible_victims'] = victims_df[possible_victims_col].apply(extract_first_number)
+
+            # Register the processed DataFrame back to DuckDB for efficient updating
+            conn.register("victims_processed", victims_df)
+
+            # Update the main table using an SQL join for efficiency
+            conn.execute("""
+                UPDATE serial
+                SET number_possible_victims = vp.number_possible_victims
+                FROM victims_processed vp
+                WHERE serial.ROWID = vp.ROWID
+            """)
+
+            # added to verify that the operation was successful
+            with_values = conn.execute("SELECT COUNT(*) FROM serial WHERE number_possible_victims IS NOT NULL").fetchone()[0]
+            print(f"Rows with number_possible_victims: {with_values}")
+
+        # Step 5: Export the final processed dataset to CSV
+        print(f"\nExporting serial table to {output_csv_path}...")
         
+        final_df = conn.execute("SELECT * FROM serial").fetchdf()
+
+        # Exporting to CSV using pandas (provides better handling of data types and formatting)
+        final_df.to_csv(output_csv_path, index=False)
+
+        # Verify the export was successful
+        if os.path.exists(output_csv_path):
+            file_size = os.path.getsize(output_csv_path)
+            print(f"Successfully exported to {output_csv_path}")
+            print(f"CSV file size: {file_size} bytes")
+            print(f"CSV contains {len(final_df)} rows and {len(final_df.columns)} columns")
+        else:
+            print(f"Failed to create CSV file at {output_csv_path}")
+
+    except Exception as e:
+        # Catching and reporting any unexpected errors
+        print(f"Error: {e}")
+    finally:
+        # Ensures database connection is properly closed even if errors occur to close out program
+        conn.close()
+        print("\nDuckDB connection closed.")
+
+
 
 if __name__ == "__main__":  
     main()
