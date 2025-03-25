@@ -76,6 +76,100 @@ print(f"Connecting to DuckDB at {duckdb_path}...")
         # Process Years active column to extract temporal information
         column_info = conn.execute("PRAGMA table_info(serial)").fetchall()
         column_names = [col[1] for col in column_info]
+        
+        years_active_col = None
+        for col in column_names:
+            if "year" in col.lower() and "active" in col.lower():
+                years_active_col = col
+                break
+
+        if years_active_col:
+            print(f"\nFound 'Years active' column: {years_active_col}")
+            quoted_col = f'"{years_active_col}"'
+
+
+            conn.execute(f"""
+                -- Add new columns to store extracted year values
+                ALTER TABLE serial ADD COLUMN from_year VARCHAR;
+                ALTER TABLE serial ADD COLUMN to_year VARCHAR;
+                
+                -- Pattern 1: Extract starting year from patterns like "1984 to 1990", "1984-1990"
+                -- The regex captures a 4-digit year followed by various separator formats
+                UPDATE serial 
+                SET from_year = regexp_extract({quoted_col}, '(\d{{4}})\s*(?:to|–|—|-)', 1)
+                WHERE from_year IS NULL AND regexp_matches({quoted_col}, '(\d{{4}})\s*(?:to|–|—|-)');
+                
+                -- Pattern 2: For single year entries (no range), extract that year as the start year
+                UPDATE serial 
+                SET from_year = regexp_extract({quoted_col}, '(\d{{4}})', 1)
+                WHERE from_year IS NULL AND regexp_matches({quoted_col}, '(\d{{4}})');
+                
+                -- Extract ending year from patterns like "1984 to 1990", "1984-1990"
+                -- The regex captures a 4-digit year that follows various separator formats
+                UPDATE serial 
+                SET to_year = regexp_extract({quoted_col}, '(?:to|–|—|-)\s*(\d{{4}})', 1)
+                WHERE to_year IS NULL AND regexp_matches({quoted_col}, '(?:to|–|—|-)\s*(\d{{4}})');
+                
+                -- For single year entries, use the same year as both start and end
+                UPDATE serial 
+                SET to_year = from_year
+                WHERE to_year IS NULL AND from_year IS NOT NULL;
+                
+                -- Convert the extracted string years to integers for calculations
+                ALTER TABLE serial ALTER COLUMN from_year TYPE INTEGER USING CAST(from_year AS INTEGER);
+                ALTER TABLE serial ALTER COLUMN to_year TYPE INTEGER USING CAST(to_year AS INTEGER);
+                
+                -- Calculate the duration of activity (inclusive of both start and end years)
+                ALTER TABLE serial ADD COLUMN active_duration INTEGER;
+                UPDATE serial SET active_duration = to_year - from_year + 1
+                WHERE from_year IS NOT NULL AND to_year IS NOT NULL;
+            """)
+        
+            print("Successfully added from_year, to_year, and active_duration columns")
+            
+        possible_victims_col = None
+        for col in column_names:
+            if "victim" in col.lower() and ("possible" in col.lower() or "potential" in col.lower()):
+                possible_victims_col = col
+                break
+
+        if possible_victims_col:
+            print(f"\nFound victims column: {possible_victims_col}")
+            quoted_victims_col = f'"{possible_victims_col}"'
+
+            conn.execute(f"""
+                -- Add column to store whether more victims are possible
+                ALTER TABLE serial ADD COLUMN more_victims_possible VARCHAR;
+                
+                -- Default assumption is 'No'
+                UPDATE serial SET more_victims_possible = 'No';
+                
+                -- If the victim count contains '+', set to 'Yes'
+                UPDATE serial 
+                SET more_victims_possible = 'Yes' 
+                WHERE {quoted_victims_col} LIKE '%+%';
+                
+                -- Handle NULL values explicitly
+                UPDATE serial
+                SET more_victims_possible = 'No'
+                WHERE {quoted_victims_col} IS NULL;
+            """)
+            
+            yes_count = conn.execute("SELECT COUNT(*) FROM serial WHERE more_victims_possible = 'Yes'").fetchone()[0]
+            no_count = conn.execute("SELECT COUNT(*) FROM serial WHERE more_victims_possible = 'No'").fetchone()[0]
+            print(f"more_victims_possible counts: Yes: {yes_count}, No: {no_count}")
+
+            print("\nProcessing number_possible_victims column...")
+            
+            conn.execute("ALTER TABLE serial ADD COLUMN number_possible_victims INTEGER")
+            
+            victims_df = conn.execute(f"""
+                SELECT ROWID, {quoted_victims_col}, more_victims_possible 
+                FROM serial
+                WHERE more_victims_possible = 'Yes'
+            """).fetchdf()
+        
+        
 
 if __name__ == "__main__":  
     main()
