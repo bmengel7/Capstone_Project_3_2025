@@ -6,13 +6,13 @@ import duckdb
 
 def main():
 
-data_dir = 'data'
-duckdb_path = os.path.join(data_dir, 'serial_killers.duckdb')
-output_csv_path = os.path.join(data_dir, 'output.csv')
+    data_dir = 'data'
+    duckdb_path = os.path.join(data_dir, 'serial_killers.duckdb')
+    output_csv_path = os.path.join(data_dir, 'output.csv')
 
-os.makedirs(data_dir, exist_ok=True)
+    os.makedirs(data_dir, exist_ok=True)
 
-print(f"Connecting to DuckDB at {duckdb_path}...")
+    print(f"Connecting to DuckDB at {duckdb_path}...")
     conn = duckdb.connect(duckdb_path)
     
     try:
